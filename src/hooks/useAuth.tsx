@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,21 +11,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
-        // Create user profile if signing up
-        if (event === 'SIGNED_IN' && session?.user) {
+
+        // Create or update user profile when user signs up/in
+        if (session?.user && event === 'SIGNED_IN') {
           setTimeout(() => {
             createUserProfile(session.user);
           }, 0);
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -45,19 +45,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createUserProfile = async (user: User) => {
     try {
-      const { error } = await supabase
+      // Check if profile already exists
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .insert({
-          user_id: user.id,
-          email: user.email,
-          display_name: user.email?.split('@')[0] || 'User',
-        });
-      
-      if (error && !error.message.includes('duplicate key')) {
-        console.error('Error creating profile:', error);
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!existingProfile) {
+        // Create profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: user.id,
+            email: user.email,
+            display_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+          });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+
+        // Assign default viewer role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user.id,
+            role: 'viewer'
+          });
+
+        if (roleError) {
+          console.error('Error assigning role:', roleError);
+        }
       }
-    } catch (err) {
-      console.error('Error creating profile:', err);
+    } catch (error) {
+      console.error('Error in createUserProfile:', error);
     }
   };
 
@@ -76,12 +98,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}

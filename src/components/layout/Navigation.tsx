@@ -37,7 +37,7 @@ const Navigation = () => {
   ];
 
   const filteredItems = navigationItems.filter(item => 
-    !item.adminOnly || user.role === "admin"
+    !item.adminOnly
   );
 
   const getRoleBadgeVariant = (role: string) => {
@@ -56,14 +56,14 @@ const Navigation = () => {
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
             <span className="text-sm font-semibold">
-              {user.name.split(' ').map(n => n[0]).join('')}
+              {user?.email?.substring(0, 2).toUpperCase() || "U"}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate">{user.name}</p>
+            <p className="font-semibold truncate">{user?.email || "User"}</p>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant={getRoleBadgeVariant(user.role)} className="text-xs capitalize">
-                {user.role}
+              <Badge variant="secondary" className="text-xs capitalize">
+                viewer
               </Badge>
             </div>
           </div>
@@ -127,8 +127,8 @@ const Navigation = () => {
               DataSheet Pro
             </h1>
           </div>
-          <Badge variant={getRoleBadgeVariant(user.role)} className="capitalize">
-            {user.role}
+          <Badge variant="secondary" className="capitalize">
+            viewer
           </Badge>
         </div>
       </div>
