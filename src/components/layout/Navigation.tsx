@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { 
@@ -12,15 +13,18 @@ import {
   LogOut
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user: authUser, signOut } = useAuth();
   
-  // Mock user data - will be replaced with actual auth
+  // User data from auth
   const user = {
-    name: "Demo User",
-    role: "admin", // admin, editor, viewer
-    email: "demo@example.com"
+    name: authUser?.email?.split('@')[0] || "User",
+    role: "admin", // TODO: Get from user_roles table
+    email: authUser?.email || ""
   };
 
   const navigationItems = [
@@ -73,7 +77,10 @@ const Navigation = () => {
             key={index}
             variant="ghost"
             className="w-full justify-start h-auto p-3 text-left"
-            onClick={() => setIsOpen(false)}
+            onClick={() => {
+              setIsOpen(false);
+              navigate(item.href);
+            }}
           >
             <item.icon className="h-5 w-5 mr-3 flex-shrink-0" />
             <span className="flex-1">{item.label}</span>
@@ -88,7 +95,11 @@ const Navigation = () => {
 
       {/* Footer */}
       <div className="p-4 border-t">
-        <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={signOut}
+        >
           <LogOut className="h-5 w-5 mr-3" />
           Sign Out
         </Button>
