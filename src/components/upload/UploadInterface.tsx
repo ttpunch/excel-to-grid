@@ -6,39 +6,129 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, AlertCircle, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from 'xlsx';
 
 const UploadInterface = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const processExcelFile = async (file: File) => {
+    return new Promise<{name: string, columns: string[], data: any[]}>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          if (jsonData.length === 0) {
+            reject(new Error('File is empty'));
+            return;
+          }
+          
+          const columns = jsonData[0] as string[];
+          const rows = jsonData.slice(1);
+          
+          resolve({
+            name: file.name.replace(/\.[^/.]+$/, ""),
+            columns: columns,
+            data: rows
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsArrayBuffer(file);
+    });
+  };
 
   const handleFileSelect = async (files: FileList) => {
     if (files.length === 0) return;
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to upload files",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
     setUploadStatus('idle');
+    setUploadedFiles([]);
 
     try {
-      // Simulate file processing
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise(resolve => setTimeout(resolve, 200));
+      const fileList = Array.from(files);
+      const successfulUploads: string[] = [];
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        setUploadProgress((i / fileList.length) * 50);
+
+        // Process Excel file
+        const fileData = await processExcelFile(file);
+        
+        // Create data sheet record
+        const { data: sheet, error: sheetError } = await supabase
+          .from('data_sheets')
+          .insert({
+            name: fileData.name,
+            description: `Uploaded from ${file.name}`,
+            columns: fileData.columns,
+            total_rows: fileData.data.length,
+            uploaded_by: user.id
+          })
+          .select()
+          .single();
+
+        if (sheetError) throw sheetError;
+
+        // Insert sheet data in batches
+        const batchSize = 100;
+        for (let j = 0; j < fileData.data.length; j += batchSize) {
+          const batch = fileData.data.slice(j, j + batchSize);
+          const sheetDataRows = batch.map((row, index) => ({
+            sheet_id: sheet.id,
+            row_index: j + index,
+            data: Object.fromEntries(
+              fileData.columns.map((col, colIndex) => [col, row[colIndex] || null])
+            )
+          }));
+
+          const { error: dataError } = await supabase
+            .from('sheet_data')
+            .insert(sheetDataRows);
+
+          if (dataError) throw dataError;
+        }
+
+        successfulUploads.push(fileData.name);
+        setUploadProgress(50 + ((i + 1) / fileList.length) * 50);
       }
 
-      // Simulate successful upload
+      setUploadedFiles(successfulUploads);
       setUploadStatus('success');
       toast({
         title: "Upload Successful",
-        description: `${files.length} file(s) processed successfully`,
+        description: `${successfulUploads.length} file(s) processed successfully`,
       });
 
     } catch (error) {
+      console.error('Upload error:', error);
       setUploadStatus('error');
       toast({
         title: "Upload Failed",
-        description: "There was an error processing your files",
+        description: error instanceof Error ? error.message : "There was an error processing your files",
         variant: "destructive",
       });
     } finally {
@@ -89,7 +179,13 @@ const UploadInterface = () => {
             <Alert className="border-success text-success">
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                Files uploaded successfully! Your data is now available in the dashboard.
+                <div>
+                  <p className="font-medium mb-2">Files uploaded successfully!</p>
+                  {uploadedFiles.map((fileName, index) => (
+                    <p key={index} className="text-sm">• {fileName}</p>
+                  ))}
+                  <p className="text-sm mt-2">Your data is now available in the Data Sheets section.</p>
+                </div>
               </AlertDescription>
             </Alert>
           )}
