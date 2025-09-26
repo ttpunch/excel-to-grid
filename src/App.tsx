@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import Upload from "./pages/Upload";
 import Sheets from "./pages/Sheets";
 import Search from "./pages/Search";
+import SheetView from "./pages/SheetView";
+import SheetEdit from "./pages/SheetEdit";
 import AuthPage from "./components/auth/AuthPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import NotFound from "./pages/NotFound";
@@ -27,6 +29,8 @@ const App = () => (
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/sheets" element={<ProtectedRoute><Sheets /></ProtectedRoute>} />
             <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
+            <Route path="/sheets/:id/view" element={<ProtectedRoute><SheetView /></ProtectedRoute>} />
+            <Route path="/sheets/:id/edit" element={<ProtectedRoute><SheetEdit /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
