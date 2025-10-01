@@ -54,15 +54,13 @@ const DataSheetSearch = () => {
     try {
       let matchingSheetIds: string[] = [];
 
-      // If search term exists, search in sheet_data for matching content
+      // If search term exists, search in sheet_data for matching content using RPC
       if (searchTerm) {
         const { data: sheetDataMatches, error: searchError } = await supabase
-          .from('sheet_data')
-          .select('sheet_id')
-          .ilike('data::text', `%${searchTerm}%`);
+          .rpc('search_sheet_data', { search_text: searchTerm });
 
         if (searchError) throw searchError;
-        matchingSheetIds = [...new Set(sheetDataMatches?.map(row => row.sheet_id) || [])];
+        matchingSheetIds = sheetDataMatches?.map((row: { sheet_id: string }) => row.sheet_id) || [];
       }
 
       let query = supabase.from('data_sheets').select('*');

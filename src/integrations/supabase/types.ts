@@ -179,6 +179,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_sheet_data: {
+        Args: { search_text: string }
+        Returns: {
+          sheet_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "editor" | "viewer"
