@@ -179,9 +179,12 @@ export type Database = {
         }
         Returns: boolean
       }
-      search_sheet_data: {
+      search_sheet_data_detailed: {
         Args: { search_text: string }
         Returns: {
+          row_data: Json
+          row_id: string
+          row_index: number
           sheet_id: string
         }[]
       }

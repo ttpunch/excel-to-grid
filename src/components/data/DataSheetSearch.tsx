@@ -31,6 +31,11 @@ interface DataSheet {
   created_at: string;
   updated_at: string;
   uploaded_by: string;
+  matchingRows?: Array<{
+    row_id: string;
+    row_index: number;
+    row_data: Record<string, any>;
+  }>;
 }
 
 const DataSheetSearch = () => {
@@ -52,21 +57,33 @@ const DataSheetSearch = () => {
   const fetchSheets = async () => {
     setLoading(true);
     try {
-      let matchingSheetIds: string[] = [];
+      let matchingRowsBySheet: Map<string, Array<any>> = new Map();
 
       // If search term exists, search in sheet_data for matching content using RPC
       if (searchTerm) {
         const { data: sheetDataMatches, error: searchError } = await supabase
-          .rpc('search_sheet_data', { search_text: searchTerm });
+          .rpc('search_sheet_data_detailed', { search_text: searchTerm });
 
         if (searchError) throw searchError;
-        matchingSheetIds = sheetDataMatches?.map((row: { sheet_id: string }) => row.sheet_id) || [];
+        
+        // Group matching rows by sheet_id
+        sheetDataMatches?.forEach((match: any) => {
+          if (!matchingRowsBySheet.has(match.sheet_id)) {
+            matchingRowsBySheet.set(match.sheet_id, []);
+          }
+          matchingRowsBySheet.get(match.sheet_id)?.push({
+            row_id: match.row_id,
+            row_index: match.row_index,
+            row_data: match.row_data
+          });
+        });
       }
 
       let query = supabase.from('data_sheets').select('*');
 
       // Apply search filter
       if (searchTerm) {
+        const matchingSheetIds = Array.from(matchingRowsBySheet.keys());
         // Search in sheet name, description, OR if the sheet ID is in our matching results
         if (matchingSheetIds.length > 0) {
           query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,id.in.(${matchingSheetIds.join(',')})`);
@@ -96,7 +113,14 @@ const DataSheetSearch = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setSheets(data || []);
+      
+      // Attach matching rows to sheets
+      const sheetsWithMatches = (data || []).map(sheet => ({
+        ...sheet,
+        matchingRows: matchingRowsBySheet.get(sheet.id) || []
+      }));
+      
+      setSheets(sheetsWithMatches);
     } catch (error) {
       console.error('Error fetching sheets:', error);
       toast({
@@ -346,6 +370,43 @@ const DataSheetSearch = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Show matching rows if search is active and there are matches */}
+              {searchTerm && sheet.matchingRows && sheet.matchingRows.length > 0 && (
+                <div className="mt-6 pt-6 border-t">
+                  <h4 className="font-medium text-sm mb-3">
+                    Matching Data ({sheet.matchingRows.length} row{sheet.matchingRows.length !== 1 ? 's' : ''})
+                  </h4>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {sheet.matchingRows.slice(0, 5).map((row, idx) => (
+                      <div key={row.row_id} className="p-3 bg-muted/50 rounded-md text-sm">
+                        <div className="font-medium mb-2 text-xs text-muted-foreground">
+                          Row {row.row_index + 1}
+                        </div>
+                        <div className="grid grid-cols-1 gap-1">
+                          {Object.entries(row.row_data).map(([key, value]) => {
+                            const valueStr = String(value || '');
+                            const isMatch = valueStr.toLowerCase().includes(searchTerm.toLowerCase());
+                            return (
+                              <div key={key} className="flex gap-2">
+                                <span className="font-medium min-w-[120px]">{key}:</span>
+                                <span className={isMatch ? 'bg-yellow-200 dark:bg-yellow-900 px-1 rounded' : ''}>
+                                  {valueStr || '-'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    {sheet.matchingRows.length > 5 && (
+                      <div className="text-sm text-muted-foreground text-center py-2">
+                        ... and {sheet.matchingRows.length - 5} more matching row{sheet.matchingRows.length - 5 !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
