@@ -52,11 +52,29 @@ const DataSheetSearch = () => {
   const fetchSheets = async () => {
     setLoading(true);
     try {
+      let matchingSheetIds: string[] = [];
+
+      // If search term exists, search in sheet_data for matching content
+      if (searchTerm) {
+        const { data: sheetDataMatches, error: searchError } = await supabase
+          .from('sheet_data')
+          .select('sheet_id')
+          .ilike('data::text', `%${searchTerm}%`);
+
+        if (searchError) throw searchError;
+        matchingSheetIds = [...new Set(sheetDataMatches?.map(row => row.sheet_id) || [])];
+      }
+
       let query = supabase.from('data_sheets').select('*');
 
       // Apply search filter
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+        // Search in sheet name, description, OR if the sheet ID is in our matching results
+        if (matchingSheetIds.length > 0) {
+          query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,id.in.(${matchingSheetIds.join(',')})`);
+        } else {
+          query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+        }
       }
 
       // Apply row count filter
