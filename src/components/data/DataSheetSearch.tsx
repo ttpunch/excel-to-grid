@@ -35,7 +35,6 @@ interface DataSheet {
 
 const DataSheetSearch = () => {
   const [sheets, setSheets] = useState<DataSheet[]>([]);
-  const [filteredSheets, setFilteredSheets] = useState<DataSheet[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
@@ -48,18 +47,37 @@ const DataSheetSearch = () => {
 
   useEffect(() => {
     fetchSheets();
-  }, []);
-
-  useEffect(() => {
-    filterAndSortSheets();
-  }, [sheets, searchTerm, sortBy, sortOrder, filterByRows]);
+  }, [searchTerm, sortBy, sortOrder, filterByRows]);
 
   const fetchSheets = async () => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('data_sheets')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let query = supabase.from('data_sheets').select('*');
+
+      // Apply search filter
+      if (searchTerm) {
+        query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+      }
+
+      // Apply row count filter
+      if (filterByRows !== "all") {
+        switch (filterByRows) {
+          case "small":
+            query = query.lte('total_rows', 100);
+            break;
+          case "medium":
+            query = query.gte('total_rows', 101).lte('total_rows', 1000);
+            break;
+          case "large":
+            query = query.gt('total_rows', 1000);
+            break;
+        }
+      }
+
+      // Apply sorting
+      query = query.order(sortBy, { ascending: sortOrder === "asc" });
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setSheets(data || []);
@@ -73,65 +91,6 @@ const DataSheetSearch = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterAndSortSheets = () => {
-    let filtered = sheets;
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(sheet => 
-        sheet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (sheet.description && sheet.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (Array.isArray(sheet.columns) && sheet.columns.some((col: string) => 
-          col.toLowerCase().includes(searchTerm.toLowerCase())
-        ))
-      );
-    }
-
-    // Row count filter
-    if (filterByRows !== "all") {
-      switch (filterByRows) {
-        case "small":
-          filtered = filtered.filter(sheet => sheet.total_rows <= 100);
-          break;
-        case "medium":
-          filtered = filtered.filter(sheet => sheet.total_rows > 100 && sheet.total_rows <= 1000);
-          break;
-        case "large":
-          filtered = filtered.filter(sheet => sheet.total_rows > 1000);
-          break;
-      }
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case "name":
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case "total_rows":
-          aValue = a.total_rows;
-          bValue = b.total_rows;
-          break;
-        case "created_at":
-        default:
-          aValue = new Date(a.created_at).getTime();
-          bValue = new Date(b.created_at).getTime();
-          break;
-      }
-
-      if (sortOrder === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
-    setFilteredSheets(filtered);
   };
 
   const handleDelete = async (sheetId: string, sheetName: string) => {
@@ -262,7 +221,7 @@ const DataSheetSearch = () => {
             </div>
 
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Showing {filteredSheets.length} of {sheets.length} sheets</span>
+              <span>Showing {sheets.length} sheet{sheets.length !== 1 ? 's' : ''}</span>
               {searchTerm && (
                 <Badge variant="secondary">
                   Search: "{searchTerm}"
@@ -280,7 +239,7 @@ const DataSheetSearch = () => {
 
       {/* Results */}
       <div className="grid gap-6">
-        {filteredSheets.map((sheet) => (
+        {sheets.map((sheet) => (
           <Card key={sheet.id} className="transition-smooth hover:shadow-glow">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -376,7 +335,7 @@ const DataSheetSearch = () => {
         ))}
       </div>
 
-      {filteredSheets.length === 0 && !loading && (
+      {sheets.length === 0 && !loading && (
         <Card className="text-center py-12">
           <CardContent>
             <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
