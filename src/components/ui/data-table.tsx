@@ -52,7 +52,7 @@ const DataTableRow = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "grid gap-4 p-4 transition-smooth",
+      "grid gap-0 transition-smooth",
       clickable && "cursor-pointer hover:bg-muted/50 active:bg-muted",
       className
     )}
@@ -70,14 +70,14 @@ const DataTableCell = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex items-center",
-      header && "font-semibold text-sm",
+      "flex items-center px-4 py-3 border-r last:border-r-0",
+      header && "font-semibold text-sm bg-gradient-primary/10",
       !header && "text-sm text-foreground",
       className
     )}
     {...props}
   >
-    <span className="truncate">{children}</span>
+    <span className="truncate w-full">{children}</span>
   </div>
 ));
 DataTableCell.displayName = "DataTableCell";
