@@ -188,7 +188,7 @@ const SheetView = () => {
           <CardContent className="p-0">
             <DataTable>
               <DataTableHeader>
-                <DataTableRow style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr)` }}>
+                <DataTableRow style={{ gridTemplateColumns: `80px repeat(${sheet.columns.length}, minmax(150px, 1fr))` }}>
                   <DataTableCell header>#</DataTableCell>
                   {sheet.columns.map((column, index) => (
                     <DataTableCell key={index} header>
@@ -201,7 +201,7 @@ const SheetView = () => {
                 {sheetData.map((row) => (
                   <DataTableRow 
                     key={row.id}
-                    style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr)` }}
+                    style={{ gridTemplateColumns: `80px repeat(${sheet.columns.length}, minmax(150px, 1fr))` }}
                   >
                     <DataTableCell>{row.row_index + 1}</DataTableCell>
                     {sheet.columns.map((column, index) => (

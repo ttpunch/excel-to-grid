@@ -70,14 +70,14 @@ const DataTableCell = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex items-center px-4 py-3 border-r last:border-r-0",
+      "flex items-center px-4 py-3 border-r last:border-r-0 min-w-0",
       header && "font-semibold text-sm bg-gradient-primary/10",
       !header && "text-sm text-foreground",
       className
     )}
     {...props}
   >
-    <span className="truncate w-full">{children}</span>
+    <span className="break-words w-full">{children}</span>
   </div>
 ));
 DataTableCell.displayName = "DataTableCell";
