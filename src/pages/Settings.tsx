@@ -35,12 +35,20 @@ interface UserProfile {
   updated_at: string;
 }
 
+interface UserRole {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'editor' | 'viewer';
+  created_at: string;
+}
+
 const Settings = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -57,6 +65,7 @@ const Settings = () => {
   useEffect(() => {
     if (user) {
       fetchProfile();
+      fetchUserRole();
     }
   }, [user]);
 
@@ -104,6 +113,27 @@ const Settings = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserRole = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching role:', error);
+        return;
+      }
+
+      if (data) {
+        setUserRole(data);
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
     }
   };
 
@@ -384,6 +414,12 @@ const Settings = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>User Role</span>
+                    <span className="font-medium capitalize">
+                      {userRole?.role || 'Loading...'}
+                    </span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span>Account Type</span>
                     <span className="font-medium">Standard</span>
