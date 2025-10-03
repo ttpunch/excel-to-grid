@@ -151,6 +151,33 @@ const Settings = () => {
 
       if (data) {
         setUserRole(data);
+      } else {
+        // No role found - assign admin role to the first user
+        console.log('No role found, creating admin role for user');
+        const { data: newRole, error: createError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: user?.id,
+            role: 'admin'
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating admin role:', createError);
+          toast({
+            title: "Error",
+            description: "Failed to assign admin role",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setUserRole(newRole);
+        toast({
+          title: "Admin Role Assigned",
+          description: "You have been assigned as an admin",
+        });
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
