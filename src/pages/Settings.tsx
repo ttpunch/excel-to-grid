@@ -417,7 +417,7 @@ const Settings = () => {
                   <div className="flex justify-between text-sm">
                     <span>User Role</span>
                     <span className="font-medium capitalize">
-                      {userRole?.role || 'Loading...'}
+                      {userRole?.role || 'No role assigned'}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
