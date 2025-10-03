@@ -19,7 +19,9 @@ import {
   Database,
   Trash2,
   LogOut,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Users,
+  UserCog
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -42,6 +44,14 @@ interface UserRole {
   created_at: string;
 }
 
+interface UserWithRole {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  role: 'admin' | 'editor' | 'viewer' | null;
+  role_id: string | null;
+}
+
 const Settings = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -51,6 +61,10 @@ const Settings = () => {
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Admin role management
+  const [allUsers, setAllUsers] = useState<UserWithRole[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   
   // Form states
   const [displayName, setDisplayName] = useState("");
@@ -68,6 +82,12 @@ const Settings = () => {
       fetchUserRole();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (userRole?.role === 'admin') {
+      fetchAllUsers();
+    }
+  }, [userRole]);
 
   const fetchProfile = async () => {
     try {
@@ -134,6 +154,80 @@ const Settings = () => {
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, email, display_name');
+
+      if (profilesError) throw profilesError;
+
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('id, user_id, role');
+
+      if (rolesError) throw rolesError;
+
+      const usersWithRoles: UserWithRole[] = (profiles || []).map((profile) => {
+        const userRole = roles?.find((r) => r.user_id === profile.user_id);
+        return {
+          user_id: profile.user_id,
+          email: profile.email || '',
+          display_name: profile.display_name,
+          role: userRole?.role || null,
+          role_id: userRole?.id || null,
+        };
+      });
+
+      setAllUsers(usersWithRoles);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load users",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, newRole: 'admin' | 'editor' | 'viewer', roleId: string | null) => {
+    try {
+      if (roleId) {
+        // Update existing role
+        const { error } = await supabase
+          .from('user_roles')
+          .update({ role: newRole })
+          .eq('id', roleId);
+
+        if (error) throw error;
+      } else {
+        // Insert new role
+        const { error } = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: newRole });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: "User role updated successfully",
+      });
+
+      fetchAllUsers();
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role",
+        variant: "destructive",
+      });
     }
   };
 
@@ -329,6 +423,68 @@ const Settings = () => {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Role Management - Admin Only */}
+            {userRole?.role === 'admin' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <UserCog className="h-5 w-5" />
+                    <CardTitle>Role Management</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Assign roles to users (Admin only)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingUsers ? (
+                    <div className="text-sm text-muted-foreground">Loading users...</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {allUsers.map((userItem) => (
+                        <div key={userItem.user_id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="bg-gradient-primary text-white text-xs">
+                                {userItem.display_name 
+                                  ? getInitials(userItem.display_name) 
+                                  : userItem.email.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {userItem.display_name || 'No name'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{userItem.email}</p>
+                            </div>
+                          </div>
+                          <Select
+                            value={userItem.role || 'viewer'}
+                            onValueChange={(value) => 
+                              handleUpdateUserRole(userItem.user_id, value as 'admin' | 'editor' | 'viewer', userItem.role_id)
+                            }
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="editor">Editor</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                      {allUsers.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No users found
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* App Preferences */}
             <Card>
