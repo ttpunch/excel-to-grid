@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { createAuditLog } from "@/lib/auditLog";
 
 interface DataSheet {
   id: string;
@@ -79,6 +80,14 @@ const DataSheetList = () => {
         .eq('id', sheetId);
 
       if (error) throw error;
+
+      // Create audit log for delete
+      await createAuditLog({
+        action: 'delete',
+        resourceType: 'sheet',
+        resourceId: sheetId,
+        details: { name: sheetName }
+      });
 
       toast({
         title: "Success",

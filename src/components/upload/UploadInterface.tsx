@@ -11,6 +11,7 @@ import { CheckCircle, AlertCircle, FileSpreadsheet, ArrowRight, ArrowLeft } from
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { createAuditLog } from "@/lib/auditLog";
 import * as XLSX from 'xlsx';
 
 interface ParsedFile {
@@ -218,6 +219,14 @@ const UploadInterface = () => {
 
           if (dataError) throw dataError;
         }
+
+        // Create audit log for upload
+        await createAuditLog({
+          action: 'upload',
+          resourceType: 'sheet',
+          resourceId: sheet.id,
+          details: { name: customName, rows: filteredData.length }
+        });
 
         successfulUploads.push(customName);
         setUploadProgress(50 + ((i + 1) / parsedFiles.length) * 50);

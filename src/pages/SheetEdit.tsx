@@ -9,6 +9,7 @@ import { DataTable, DataTableHeader, DataTableBody, DataTableRow, DataTableCell 
 import { ArrowLeft, Save, Eye, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { createAuditLog } from "@/lib/auditLog";
 
 interface DataSheet {
   id: string;
@@ -140,6 +141,14 @@ const SheetEdit = () => {
           if (dataError) throw dataError;
         }
       }
+
+      // Create audit log for edit
+      await createAuditLog({
+        action: 'edit',
+        resourceType: 'sheet',
+        resourceId: sheet.id,
+        details: { name, cellsEdited: Object.keys(editedData).length }
+      });
 
       toast({
         title: "Success",
