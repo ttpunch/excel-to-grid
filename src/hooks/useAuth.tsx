@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!existingProfile) {
         // Create profile only (no role assigned - awaiting admin approval)
