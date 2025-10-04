@@ -21,7 +21,9 @@ import {
   LogOut,
   Settings as SettingsIcon,
   Users,
-  UserCog
+  UserCog,
+  Key,
+  RefreshCw
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,6 +77,12 @@ const Settings = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [dataRetention, setDataRetention] = useState("30");
   const [autoBackup, setAutoBackup] = useState(false);
+
+  // Password change states
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -306,6 +314,91 @@ const Settings = () => {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all password fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Password changed successfully",
+      });
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password",
+        variant: "destructive",
+      });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const handleResetUserPassword = async (email: string) => {
+    if (!confirm(`Send password reset email to ${email}?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.functions.invoke('send-password-reset', {
+        body: { 
+          email,
+          isAdmin: true
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Password reset email sent to ${email}`,
+      });
+    } catch (error: any) {
+      console.error('Error sending password reset:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send password reset email",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (!confirm("Are you sure you want to delete your account? This action cannot be undone and will delete all your data.")) {
       return;
@@ -451,6 +544,50 @@ const Settings = () => {
               </CardContent>
             </Card>
 
+            {/* Password Management */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  <CardTitle>Password Management</CardTitle>
+                </div>
+                <CardDescription>
+                  Change your account password
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min 6 characters)"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleChangePassword} 
+                  disabled={changingPassword || !newPassword || !confirmPassword}
+                >
+                  <Key className="h-4 w-4 mr-2" />
+                  {changingPassword ? "Changing Password..." : "Change Password"}
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Role Management - Admin Only */}
             {userRole?.role === 'admin' && (
               <Card>
@@ -485,21 +622,31 @@ const Settings = () => {
                               <p className="text-xs text-muted-foreground">{userItem.email}</p>
                             </div>
                           </div>
-                          <Select
-                            value={userItem.role || 'viewer'}
-                            onValueChange={(value) => 
-                              handleUpdateUserRole(userItem.user_id, value as 'admin' | 'editor' | 'viewer', userItem.role_id)
-                            }
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="editor">Editor</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={userItem.role || 'viewer'}
+                              onValueChange={(value) => 
+                                handleUpdateUserRole(userItem.user_id, value as 'admin' | 'editor' | 'viewer', userItem.role_id)
+                              }
+                            >
+                              <SelectTrigger className="w-32">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="editor">Editor</SelectItem>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetUserPassword(userItem.email)}
+                              title="Send password reset email"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                       {allUsers.length === 0 && (
