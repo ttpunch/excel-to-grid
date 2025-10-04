@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Create or update user profile when user signs up/in
+        // Create user profile when user signs up/in (without role)
         if (session?.user && event === 'SIGNED_IN') {
           setTimeout(() => {
             createUserProfile(session.user);
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (!existingProfile) {
-        // Create profile
+        // Create profile only (no role assigned - awaiting admin approval)
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -64,18 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (profileError) {
           console.error('Error creating profile:', profileError);
-        }
-
-        // Assign default viewer role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: user.id,
-            role: 'viewer'
-          });
-
-        if (roleError) {
-          console.error('Error assigning role:', roleError);
         }
       }
     } catch (error) {
