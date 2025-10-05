@@ -47,17 +47,27 @@ const Dashboard = () => {
 
       return logs?.map(log => {
         const profile = profileMap.get(log.user_id);
-        const details = log.details as { name?: string } | null;
+        const details = log.details as { name?: string; rows?: number; cellsEdited?: number } | null;
+        
+        let detailText = '';
+        if (log.action === 'upload' && details?.rows) {
+          detailText = `${details.rows} rows`;
+        } else if (log.action === 'edit' && details?.cellsEdited) {
+          detailText = `${details.cellsEdited} cell${details.cellsEdited !== 1 ? 's' : ''} modified`;
+        } else if (log.action === 'delete') {
+          detailText = 'deleted permanently';
+        }
         
         return {
           id: log.id,
           action: log.action.charAt(0).toUpperCase() + log.action.slice(1),
           item: log.resource_type === 'sheet' && log.resource_id 
-            ? sheetMap.get(log.resource_id) || 'Unknown Sheet'
+            ? sheetMap.get(log.resource_id) || details?.name || 'Unknown Sheet'
             : details?.name || 'Unknown',
           user: profile?.display_name || profile?.email || 'Unknown User',
           time: formatDistanceToNow(new Date(log.created_at), { addSuffix: true }),
-          type: log.action
+          type: log.action,
+          detail: detailText
         };
       }) || [];
     }
@@ -156,6 +166,11 @@ const Dashboard = () => {
                           <span className="text-primary">{activity.user}</span> {activity.action.toLowerCase()} 
                           <span className="font-semibold"> {activity.item}</span>
                         </p>
+                        {activity.detail && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {activity.detail}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">{activity.time}</p>
                       </div>
                     </div>
