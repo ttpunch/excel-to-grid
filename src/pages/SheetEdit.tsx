@@ -112,6 +112,14 @@ const SheetEdit = () => {
     
     setSaving(true);
     try {
+      // Capture changes with old and new values
+      const changes: Array<{
+        row: number;
+        column: string;
+        oldValue: any;
+        newValue: any;
+      }> = [];
+
       // Update sheet metadata
       const { error: sheetError } = await supabase
         .from('data_sheets')
@@ -125,10 +133,23 @@ const SheetEdit = () => {
       if (sheetError) throw sheetError;
 
       // Update edited cells
-      for (const [rowId, changes] of Object.entries(editedData)) {
+      for (const [rowId, cellChanges] of Object.entries(editedData)) {
         const originalRow = sheetData.find(row => row.id === rowId);
         if (originalRow) {
-          const updatedData = { ...originalRow.data, ...changes };
+          // Track each cell change
+          for (const [column, newValue] of Object.entries(cellChanges)) {
+            const oldValue = originalRow.data[column];
+            if (oldValue !== newValue) {
+              changes.push({
+                row: originalRow.row_index + 1,
+                column,
+                oldValue: oldValue || '(empty)',
+                newValue: newValue || '(empty)'
+              });
+            }
+          }
+
+          const updatedData = { ...originalRow.data, ...cellChanges };
           
           const { error: dataError } = await supabase
             .from('sheet_data')
@@ -142,12 +163,16 @@ const SheetEdit = () => {
         }
       }
 
-      // Create audit log for edit
+      // Create audit log for edit with detailed changes
       await createAuditLog({
         action: 'edit',
         resourceType: 'sheet',
         resourceId: sheet.id,
-        details: { name, cellsEdited: Object.keys(editedData).length }
+        details: { 
+          name, 
+          cellsEdited: changes.length,
+          changes: changes.slice(0, 10) // Store up to 10 changes to avoid huge payloads
+        }
       });
 
       toast({

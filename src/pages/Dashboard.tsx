@@ -47,13 +47,28 @@ const Dashboard = () => {
 
       return logs?.map(log => {
         const profile = profileMap.get(log.user_id);
-        const details = log.details as { name?: string; rows?: number; cellsEdited?: number } | null;
+        const details = log.details as { 
+          name?: string; 
+          rows?: number; 
+          cellsEdited?: number;
+          changes?: Array<{
+            row: number;
+            column: string;
+            oldValue: any;
+            newValue: any;
+          }>;
+        } | null;
         
         let detailText = '';
+        let detailsList: string[] = [];
+        
         if (log.action === 'upload' && details?.rows) {
-          detailText = `${details.rows} rows`;
-        } else if (log.action === 'edit' && details?.cellsEdited) {
+          detailText = `${details.rows} rows uploaded`;
+        } else if (log.action === 'edit' && details?.changes && details.changes.length > 0) {
           detailText = `${details.cellsEdited} cell${details.cellsEdited !== 1 ? 's' : ''} modified`;
+          detailsList = details.changes.map(change => 
+            `Row ${change.row}, ${change.column}: "${change.oldValue}" → "${change.newValue}"`
+          );
         } else if (log.action === 'delete') {
           detailText = 'deleted permanently';
         }
@@ -67,7 +82,8 @@ const Dashboard = () => {
           user: profile?.display_name || profile?.email || 'Unknown User',
           time: formatDistanceToNow(new Date(log.created_at), { addSuffix: true }),
           type: log.action,
-          detail: detailText
+          detail: detailText,
+          changesList: detailsList
         };
       }) || [];
     }
@@ -171,7 +187,16 @@ const Dashboard = () => {
                             {activity.detail}
                           </p>
                         )}
-                        <p className="text-xs text-muted-foreground">{activity.time}</p>
+                        {activity.changesList && activity.changesList.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {activity.changesList.map((change, idx) => (
+                              <p key={idx} className="text-xs text-muted-foreground bg-background/50 p-1.5 rounded font-mono">
+                                {change}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
                       </div>
                     </div>
                   ))
