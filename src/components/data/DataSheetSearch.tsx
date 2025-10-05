@@ -41,6 +41,7 @@ interface DataSheet {
 const DataSheetSearch = () => {
   const [sheets, setSheets] = useState<DataSheet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -53,6 +54,10 @@ const DataSheetSearch = () => {
   useEffect(() => {
     fetchSheets();
   }, [searchTerm, sortBy, sortOrder, filterByRows]);
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+  };
 
   const fetchSheets = async () => {
     setLoading(true);
@@ -223,13 +228,18 @@ const DataSheetSearch = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, description, or column names..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   className="pl-10"
                 />
               </div>
               
               <div className="flex gap-2">
+                <Button onClick={handleSearch}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </Button>
                 <Select value={filterByRows} onValueChange={setFilterByRows}>
                   <SelectTrigger className="w-40">
                     <Filter className="h-4 w-4 mr-2" />
@@ -426,6 +436,7 @@ const DataSheetSearch = () => {
               <Button 
                 variant="outline" 
                 onClick={() => {
+                  setSearchInput("");
                   setSearchTerm("");
                   setFilterByRows("all");
                 }}
