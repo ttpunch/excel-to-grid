@@ -84,6 +84,17 @@ const Settings = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // Admin - Create new user states
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserDisplayName, setNewUserDisplayName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
+  const [creatingUser, setCreatingUser] = useState(false);
+
+  // Admin - Change user password states
+  const [selectedUserForPasswordChange, setSelectedUserForPasswordChange] = useState<string | null>(null);
+  const [adminSetPassword, setAdminSetPassword] = useState("");
+
   useEffect(() => {
     if (user) {
       fetchProfile();
@@ -399,6 +410,101 @@ const Settings = () => {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserPassword) {
+      toast({
+        title: "Error",
+        description: "Email and password are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newUserPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      // Call edge function to create user with admin privileges
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: newUserEmail,
+          password: newUserPassword,
+          displayName: newUserDisplayName || newUserEmail.split('@')[0],
+          role: newUserRole
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `User ${newUserEmail} created successfully`,
+      });
+
+      // Reset form
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserDisplayName("");
+      setNewUserRole('viewer');
+
+      // Refresh users list
+      fetchAllUsers();
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleAdminChangePassword = async (userId: string, userEmail: string) => {
+    if (!adminSetPassword || adminSetPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.functions.invoke('admin-change-password', {
+        body: {
+          userId,
+          newPassword: adminSetPassword
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Password updated for ${userEmail}`,
+      });
+
+      setSelectedUserForPasswordChange(null);
+      setAdminSetPassword("");
+    } catch (error: any) {
+      console.error('Error changing user password:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeleteAccount = async () => {
     if (!confirm("Are you sure you want to delete your account? This action cannot be undone and will delete all your data.")) {
       return;
@@ -588,16 +694,87 @@ const Settings = () => {
               </CardContent>
             </Card>
 
+            {/* Create New User - Admin Only */}
+            {userRole?.role === 'admin' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    <CardTitle>Create New User</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Create a new user account with email and password (Admin only)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="newUserEmail">Email Address</Label>
+                    <Input
+                      id="newUserEmail"
+                      type="email"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      placeholder="user@example.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="newUserDisplayName">Display Name (Optional)</Label>
+                    <Input
+                      id="newUserDisplayName"
+                      value={newUserDisplayName}
+                      onChange={(e) => setNewUserDisplayName(e.target.value)}
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="newUserPassword">Password</Label>
+                    <Input
+                      id="newUserPassword"
+                      type="password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      placeholder="Minimum 6 characters"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="newUserRole">User Role</Label>
+                    <Select value={newUserRole} onValueChange={(value) => setNewUserRole(value as 'admin' | 'editor' | 'viewer')}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="editor">Editor</SelectItem>
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button 
+                    onClick={handleCreateUser} 
+                    disabled={creatingUser || !newUserEmail || !newUserPassword}
+                    className="w-full"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    {creatingUser ? "Creating User..." : "Create User"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Role Management - Admin Only */}
             {userRole?.role === 'admin' && (
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <UserCog className="h-5 w-5" />
-                    <CardTitle>Role Management</CardTitle>
+                    <CardTitle>User Management</CardTitle>
                   </div>
                   <CardDescription>
-                    Assign roles to users (Admin only)
+                    Manage user roles and passwords (Admin only)
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -606,47 +783,73 @@ const Settings = () => {
                   ) : (
                     <div className="space-y-4">
                       {allUsers.map((userItem) => (
-                        <div key={userItem.user_id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="bg-gradient-primary text-white text-xs">
-                                {userItem.display_name 
-                                  ? getInitials(userItem.display_name) 
-                                  : userItem.email.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="text-sm font-medium">
-                                {userItem.display_name || 'No name'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{userItem.email}</p>
+                        <div key={userItem.user_id} className="border rounded-lg p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-gradient-primary text-white text-xs">
+                                  {userItem.display_name 
+                                    ? getInitials(userItem.display_name) 
+                                    : userItem.email.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {userItem.display_name || 'No name'}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{userItem.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={userItem.role || 'viewer'}
+                                onValueChange={(value) => 
+                                  handleUpdateUserRole(userItem.user_id, value as 'admin' | 'editor' | 'viewer', userItem.role_id)
+                                }
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="editor">Editor</SelectItem>
+                                  <SelectItem value="viewer">Viewer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedUserForPasswordChange(
+                                  selectedUserForPasswordChange === userItem.user_id ? null : userItem.user_id
+                                )}
+                                title="Change password"
+                              >
+                                <Key className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Select
-                              value={userItem.role || 'viewer'}
-                              onValueChange={(value) => 
-                                handleUpdateUserRole(userItem.user_id, value as 'admin' | 'editor' | 'viewer', userItem.role_id)
-                              }
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="editor">Editor</SelectItem>
-                                <SelectItem value="viewer">Viewer</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleResetUserPassword(userItem.email)}
-                              title="Send password reset email"
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          
+                          {selectedUserForPasswordChange === userItem.user_id && (
+                            <div className="space-y-2 pt-2 border-t">
+                              <Label htmlFor={`password-${userItem.user_id}`}>New Password</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  id={`password-${userItem.user_id}`}
+                                  type="password"
+                                  value={adminSetPassword}
+                                  onChange={(e) => setAdminSetPassword(e.target.value)}
+                                  placeholder="Enter new password (min 6 characters)"
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAdminChangePassword(userItem.user_id, userItem.email)}
+                                  disabled={!adminSetPassword || adminSetPassword.length < 6}
+                                >
+                                  Set
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                       {allUsers.length === 0 && (

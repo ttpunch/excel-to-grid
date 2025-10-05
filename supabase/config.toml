@@ -2,3 +2,9 @@ project_id = "itveervvynitoqifxmjv"
 
 [functions.send-password-reset]
 verify_jwt = true
+
+[functions.admin-create-user]
+verify_jwt = true
+
+[functions.admin-change-password]
+verify_jwt = true
