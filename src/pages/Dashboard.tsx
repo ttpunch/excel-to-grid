@@ -286,7 +286,7 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
+      </div>
 
         {/* Getting Started */}
         <Card className="bg-gradient-primary text-primary-foreground">
