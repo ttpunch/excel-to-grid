@@ -286,48 +286,7 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-      </div>
-
-        {/* Getting Started */}
-        <Card className="bg-gradient-primary text-primary-foreground">
-          <CardHeader>
-            <CardTitle className="text-xl">Getting Started with DataSheet Pro</CardTitle>
-            <CardDescription className="text-primary-foreground/80">
-              Follow these steps to make the most of your data management platform
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
-                  1
-                </div>
-                <h3 className="font-semibold">Upload Your Data</h3>
-                <p className="text-sm text-primary-foreground/80">
-                  Upload Excel or CSV files to start managing your data
-                </p>
-              </div>
-              <div className="space-y-2">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
-                  2
-                </div>
-                <h3 className="font-semibold">Organize & Search</h3>
-                <p className="text-sm text-primary-foreground/80">
-                  Use powerful search and filtering tools to find what you need
-                </p>
-              </div>
-              <div className="space-y-2">
-                <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">
-                  3
-                </div>
-                <h3 className="font-semibold">Collaborate</h3>
-                <p className="text-sm text-primary-foreground/80">
-                  Invite team members and manage access with role-based permissions
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </Layout>
   );
