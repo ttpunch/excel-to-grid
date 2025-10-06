@@ -161,9 +161,9 @@ const Settings = () => {
         .from('user_roles')
         .select('*')
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching role:', error);
         return;
       }
@@ -171,32 +171,30 @@ const Settings = () => {
       if (data) {
         setUserRole(data);
       } else {
-        // No role found - assign admin role to the first user
-        console.log('No role found, creating admin role for user');
+        // No role found - assign viewer role by default
+        console.log('No role found, creating viewer role for user');
         const { data: newRole, error: createError } = await supabase
           .from('user_roles')
           .insert({
             user_id: user?.id,
-            role: 'admin'
+            role: 'viewer'
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (createError) {
-          console.error('Error creating admin role:', createError);
+          console.error('Error creating viewer role:', createError);
           toast({
             title: "Error",
-            description: "Failed to assign admin role",
+            description: "Failed to assign role",
             variant: "destructive",
           });
           return;
         }
 
-        setUserRole(newRole);
-        toast({
-          title: "Admin Role Assigned",
-          description: "You have been assigned as an admin",
-        });
+        if (newRole) {
+          setUserRole(newRole);
+        }
       }
     } catch (error) {
       console.error('Error fetching user role:', error);
