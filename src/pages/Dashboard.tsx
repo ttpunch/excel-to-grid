@@ -136,10 +136,10 @@ const Dashboard = () => {
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-            Dashboard
+            Data Store
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Welcome to DataSheet Pro - your comprehensive Excel data management platform
+            Your comprehensive data management platform
           </p>
         </div>
 
