@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,10 +24,37 @@ const Navigation = () => {
   // User data from auth
   const user = {
     name: authUser?.email?.split('@')[0] || "User",
-    role: "admin", // TODO: Get from user_roles table
     email: authUser?.email || ""
   };
 
+  const [role, setRole] = useState<'admin' | 'editor' | 'viewer'>('viewer');
+
+  useEffect(() => {
+    let active = true;
+    const fetchRole = async () => {
+      if (!authUser?.id) return;
+      const { data } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+      if (!active) return;
+      if (data?.role) setRole(data.role as any);
+    };
+    fetchRole();
+
+    const channel = supabase
+      .channel('nav-user-role')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles', filter: `user_id=eq.${authUser?.id}` }, () => {
+        fetchRole();
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [authUser?.id]);
   const navigationItems = [
     { icon: Home, label: "Dashboard", href: "/", badge: null },
     { icon: Upload, label: "Upload Data", href: "/upload", badge: null },
@@ -62,8 +90,8 @@ const Navigation = () => {
           <div className="flex-1 min-w-0">
             <p className="font-semibold truncate">{user?.email || "User"}</p>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className="text-xs capitalize">
-                viewer
+              <Badge variant={getRoleBadgeVariant(role)} className="text-xs capitalize">
+                {role}
               </Badge>
             </div>
           </div>
@@ -127,8 +155,8 @@ const Navigation = () => {
               DataSheet Pro
             </h1>
           </div>
-          <Badge variant="secondary" className="capitalize">
-            viewer
+          <Badge variant={getRoleBadgeVariant(role)} className="capitalize">
+            {role}
           </Badge>
         </div>
       </div>
