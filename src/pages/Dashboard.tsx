@@ -249,7 +249,7 @@ const Dashboard = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-h-[500px] overflow-y-auto">
               <div className="space-y-4">
                 {!recentActivity || recentActivity.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
