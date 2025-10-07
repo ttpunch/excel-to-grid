@@ -115,10 +115,10 @@ const AuthPage = () => {
             </div>
           </div>
           <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-            DataSheet Pro
+            DataStore
           </h1>
           <p className="text-muted-foreground">
-            Excel Data Management Platform
+            Data Management Platform
           </p>
         </div>
 
