@@ -152,7 +152,7 @@ const Navigation = () => {
               </SheetContent>
             </Sheet>
             <h1 className="text-lg font-bold bg-gradient-primary bg-clip-text text-transparent">
-              DataSheet Pro
+              DataStore
             </h1>
           </div>
           <Badge variant={getRoleBadgeVariant(role)} className="capitalize">
@@ -165,7 +165,7 @@ const Navigation = () => {
       <aside className="hidden lg:flex lg:w-80 lg:flex-col lg:fixed lg:inset-y-0 z-50 bg-card border-r shadow-elegant">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-            DataSheet Pro
+            DataStore
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Excel Data Management Platform
