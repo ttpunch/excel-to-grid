@@ -120,6 +120,7 @@ const Navigation = () => {
           </Button>
         ))}
       </nav>
+      <p className="p-4 border-t"> © Vinod Kumar/CNC</p>
 
       {/* Footer */}
       <div className="p-4 border-t">
