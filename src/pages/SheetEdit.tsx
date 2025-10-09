@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, DataTableHeader, DataTableBody, DataTableRow, DataTableCell } from "@/components/ui/data-table";
-import { ArrowLeft, Save, Eye, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Eye, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { createAuditLog } from "@/lib/auditLog";
@@ -41,6 +41,10 @@ const SheetEdit = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [editedData, setEditedData] = useState<Record<string, Record<string, any>>>({});
+  
+  // Add record functionality
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newRecordData, setNewRecordData] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (id) {
@@ -105,6 +109,167 @@ const SheetEdit = () => {
       return editedData[row.id][column];
     }
     return row.data[column] || '';
+  };
+
+  const handleAddRecord = () => {
+    setShowAddForm(true);
+    // Initialize new record with empty values for all columns
+    const initialData: Record<string, any> = {};
+    if (sheet?.columns) {
+      sheet.columns.forEach((column: string) => {
+        initialData[column] = '';
+      });
+    }
+    setNewRecordData(initialData);
+  };
+
+  const handleNewRecordFieldChange = (column: string, value: any) => {
+    setNewRecordData(prev => ({
+      ...prev,
+      [column]: value
+    }));
+  };
+
+  const handleSaveNewRecord = async () => {
+    if (!sheet) return;
+
+    try {
+      // Get the next row index
+      const nextRowIndex = sheetData.length > 0 ? Math.max(...sheetData.map(row => row.row_index)) + 1 : 0;
+
+      // Insert new record
+      const { data: newRow, error: insertError } = await supabase
+        .from('sheet_data')
+        .insert({
+          sheet_id: sheet.id,
+          row_index: nextRowIndex,
+          data: newRecordData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Update total_rows count
+      const { error: updateError } = await supabase
+        .from('data_sheets')
+        .update({
+          total_rows: sheet.total_rows + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sheet.id);
+
+      if (updateError) throw updateError;
+
+      // Create audit log
+      await createAuditLog({
+        action: 'add_record',
+        resourceType: 'sheet',
+        resourceId: sheet.id,
+        details: { 
+          name: sheet.name,
+          newRowIndex: nextRowIndex,
+          columnsWithData: Object.keys(newRecordData).filter(key => newRecordData[key] !== '')
+        }
+      });
+
+      toast({
+        title: "Success",
+        description: "New record added successfully",
+      });
+
+      // Reset form and refresh data
+      setShowAddForm(false);
+      setNewRecordData({});
+      fetchSheetDetails();
+    } catch (error) {
+      console.error('Error adding record:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add new record",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelAddRecord = () => {
+    setShowAddForm(false);
+    setNewRecordData({});
+  };
+
+  const handleDeleteRow = async (rowId: string, rowIndex: number) => {
+    if (!sheet) return;
+
+    const confirmMessage = `Are you sure you want to delete row ${rowIndex + 1}? This action cannot be undone.`;
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // Delete the row from database
+      const { error: deleteError } = await supabase
+        .from('sheet_data')
+        .delete()
+        .eq('id', rowId);
+
+      if (deleteError) throw deleteError;
+
+      // Update total_rows count
+      const { error: updateError } = await supabase
+        .from('data_sheets')
+        .update({
+          total_rows: sheet.total_rows - 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sheet.id);
+
+      if (updateError) throw updateError;
+
+      // Update row indices for remaining rows (shift down)
+      const remainingRows = sheetData.filter(row => row.row_index > rowIndex);
+      if (remainingRows.length > 0) {
+        for (const row of remainingRows) {
+          const { error: indexError } = await supabase
+            .from('sheet_data')
+            .update({
+              row_index: row.row_index - 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', row.id);
+
+          if (indexError) throw indexError;
+        }
+      }
+
+      // Create audit log
+      await createAuditLog({
+        action: 'delete_row',
+        resourceType: 'sheet',
+        resourceId: sheet.id,
+        details: { 
+          name: sheet.name,
+          deletedRowIndex: rowIndex,
+          newTotalRows: sheet.total_rows - 1
+        }
+      });
+
+      toast({
+        title: "Success",
+        description: `Row ${rowIndex + 1} deleted successfully`,
+      });
+
+      // Refresh data
+      fetchSheetDetails();
+    } catch (error) {
+      console.error('Error deleting row:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete row",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -223,7 +388,7 @@ const SheetEdit = () => {
     );
   }
 
-  const hasChanges = name !== sheet.name || description !== (sheet.description || "") || Object.keys(editedData).length > 0;
+  const hasChanges = name !== sheet.name || description !== (sheet.description || "") || Object.keys(editedData).length > 0 || showAddForm;
 
   return (
     <Layout>
@@ -292,28 +457,67 @@ const SheetEdit = () => {
         {/* Data Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Edit Data</CardTitle>
-            <CardDescription>
-              Click on any cell to edit its value. Changes are highlighted.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Edit Data</CardTitle>
+                <CardDescription>
+                  Click on any cell to edit its value. Changes are highlighted.
+                </CardDescription>
+              </div>
+              <Button 
+                onClick={handleAddRecord}
+                variant="outline"
+                size="sm"
+                disabled={showAddForm}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Record
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <DataTable>
               <DataTableHeader>
-                <DataTableRow style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr)` }}>
+                <DataTableRow style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr) 60px` }}>
                   <DataTableCell header>#</DataTableCell>
                   {sheet.columns.map((column, index) => (
                     <DataTableCell key={index} header>
                       {column}
                     </DataTableCell>
                   ))}
+                  <DataTableCell header className="text-center">Action</DataTableCell>
                 </DataTableRow>
               </DataTableHeader>
               <DataTableBody>
+                {/* Add new record form */}
+                {showAddForm && (
+                  <DataTableRow 
+                    style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr) 60px` }}
+                    className="bg-primary/5 border-primary"
+                  >
+                    <DataTableCell>
+                      <span className="text-primary font-medium">New</span>
+                    </DataTableCell>
+                    {sheet.columns.map((column, index) => (
+                      <DataTableCell key={index}>
+                        <Input
+                          value={newRecordData[column] || ''}
+                          onChange={(e) => handleNewRecordFieldChange(column, e.target.value)}
+                          placeholder={`Enter ${column}`}
+                          className="border-primary bg-background focus:border-primary"
+                        />
+                      </DataTableCell>
+                    ))}
+                    <DataTableCell className="text-center">
+                      <span className="text-muted-foreground text-xs">New</span>
+                    </DataTableCell>
+                  </DataTableRow>
+                )}
+                
                 {sheetData.map((row) => (
                   <DataTableRow 
                     key={row.id}
-                    style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr)` }}
+                    style={{ gridTemplateColumns: `50px repeat(${sheet.columns.length}, 1fr) 60px` }}
                   >
                     <DataTableCell>{row.row_index + 1}</DataTableCell>
                     {sheet.columns.map((column, index) => {
@@ -330,11 +534,44 @@ const SheetEdit = () => {
                         </DataTableCell>
                       );
                     })}
+                    <DataTableCell className="text-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteRow(row.id, row.row_index)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </DataTableCell>
                   </DataTableRow>
                 ))}
               </DataTableBody>
             </DataTable>
           </CardContent>
+          
+          {/* Add record form actions */}
+          {showAddForm && (
+            <CardContent className="pt-4 border-t bg-primary/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium text-primary">Add New Record</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Fill in the fields above and save to add a new record to this sheet.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleCancelAddRecord}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveNewRecord}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Record
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {hasChanges && (

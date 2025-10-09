@@ -387,9 +387,9 @@ const DataSheetSearch = () => {
                   <h4 className="font-medium text-sm mb-3">
                     Matching Data ({sheet.matchingRows.length} row{sheet.matchingRows.length !== 1 ? 's' : ''})
                   </h4>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {sheet.matchingRows.slice(0, 5).map((row, idx) => (
-                      <div key={row.row_id} className="p-3 bg-muted/50 rounded-md text-sm">
+                  <div className="space-y-2 max-h-80 overflow-y-auto border rounded-md p-3 bg-muted/20">
+                    {sheet.matchingRows.map((row, idx) => (
+                      <div key={row.row_id} className="p-3 bg-background rounded-md text-sm border">
                         <div className="font-medium mb-2 text-xs text-muted-foreground">
                           Row {row.row_index + 1}
                         </div>
@@ -409,11 +409,6 @@ const DataSheetSearch = () => {
                         </div>
                       </div>
                     ))}
-                    {sheet.matchingRows.length > 5 && (
-                      <div className="text-sm text-muted-foreground text-center py-2">
-                        ... and {sheet.matchingRows.length - 5} more matching row{sheet.matchingRows.length - 5 !== 1 ? 's' : ''}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
